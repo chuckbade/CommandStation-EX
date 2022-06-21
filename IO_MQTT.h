@@ -33,7 +33,7 @@
 
 #include "IODevice.h"
 #include <Ethernet.h>
-#include <PubSubClient.h>
+#include "myPubSubClient.h"
 
 class IO_MQTT : public IODevice {
 public:
@@ -50,7 +50,7 @@ protected:
 private:
   void _publish(char* topic, char* payload);
   static void _callback(char* topic, byte* payload, unsigned int length);
-  void _connect();
+  void _reconnect();
 
   uint16_t _nTurnouts;
   uint16_t _nSensors;

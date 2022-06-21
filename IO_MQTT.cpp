@@ -1,5 +1,6 @@
 /*
- *  © 2021, Neil McKechnie. All rights reserved.
+ *  © 2022, Chuck Bade,  All rights reserved.
+ *  Template originated from Neil McKechnie's code. All rights reserved.
  *  
  *  This file is part of DCC++EX API
  *
@@ -42,7 +43,7 @@
 #include "MiniBitSet.h"
 
 EthernetClient ethClient = EthernetServer(1883).available();
-PubSubClient mqttClient(ethClient);
+myPubSubClient mqttClient(ethClient);
 MiniBitSet sensorData;
 uint16_t firstSensor;
 
@@ -73,7 +74,7 @@ void IO_MQTT::_begin() {
   mqttClient.setServer(MQTTIP, 1883);
   mqttClient.setCallback(_callback);
 
-  _connect();
+  _reconnect();
   
   // publish an empty output message to clear any retained messages
   //mqttClient.publish(topic, "", true);   // doesn't work, causes 
@@ -81,7 +82,6 @@ void IO_MQTT::_begin() {
 
   DIAG(F("IO_MQTT::_begin Subscribe for %d sensors with topic %s")
     , _nSensors, SENSORTOPIC);
-  DIAG(F("IO_MQTT::_begin firstSensor=%d"), firstSensor);
 
   for (int i = 0; i < _nSensors; i++) {    
     sprintf(topic, "%s%d", SENSORTOPIC, firstSensor + i); 
@@ -129,7 +129,8 @@ void IO_MQTT::_loop(unsigned long currentMicros) {
   (void)currentMicros;  // Suppress compiler warnings
 
   // confirm still connected to mqtt server
-  _connect();
+  if (!mqttClient.connected())
+    _reconnect();
   
   mqttClient.loop();
 }
@@ -187,34 +188,55 @@ static void IO_MQTT::_callback(char* topic, byte* payload, unsigned int length) 
 }
 
 
-void IO_MQTT::_connect() {
-  if (mqttClient.connected())
-    return;
-    
-  // Loop until we're reconnected
-  while (!mqttClient.connected()) {
+
+long lastReconnectAttempt = 0;
+
+void IO_MQTT::_reconnect() {
+  // check that a connection isnt already in progress
+  if (mqttClient.state() != MQTT_CONNECT_INPROGRESS) {
+    long now = millis();
+    if (now - lastReconnectAttempt < 5000)
+      return;
+
     IPAddress ip = Ethernet.localIP(); // get the IP address
-    char nodeName[12];
-    sprintf(nodeName, "DCC++EX.%d", ip[3]);
+    char clientId[12];
+    sprintf(clientId, "DCC++EX.%d", ip[3]);
 
     DIAG(F("IO_MQTT::connectMqtt Attempting MQTT connection with name=%s")
-      , nodeName);
+      , clientId);
 
     // Attempt to connect
-    if (mqttClient.connect(nodeName)) {
-      DIAG(F("IO_MQTT::connectMqtt connected to MQTT broker at %s"), MQTTIP);
-    } else {
-      DIAG(F("IO_MQTT::connectMqtt failed, rc=%d try again in 5 seconds")
-        , mqttClient.state());
-      // Wait 5 seconds before retrying
-      delay(5000);
-    }
+    lastReconnectAttempt = now;
+    mqttClient.beginConnect(clientId);
+  }
+
+  // check the connect status
+  int ret = mqttClient.connectStatus();
+  switch (ret) {
+    case MQTT_CONNECTED:
+      Serial.println("connected");
+      // Once connected, publish an announcement...
+      mqttClient.publish("outTopic", "hello world");
+      // ... and resubscribe
+      mqttClient.subscribe("inTopic");
+
+      lastReconnectAttempt = 0;
+      break;
+    case MQTT_CONNECT_INPROGRESS:
+      return;
+    default:
+      Serial.print("failed! rc = "); Serial.print(ret);
+      Serial.println(". Trying again in 5 seconds.");
+      break;
   }
 }
+
+
+
 /*  
  *   
-  bitArrayUtils(<number of bits in array>)  // create array
-  ~bitArrayUtils() // delete array
+  MiniBitSet(<number of bits in array>)  // create array
+  ~MiniBitSet() // delete array
   bool get(<bit number>)   // get a single bit
   void set(<bit number>)   // set a single bit to 1
   void clear(<bit number>) // set a single bit to 0
