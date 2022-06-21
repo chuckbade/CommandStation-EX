@@ -41,15 +41,18 @@
   ALIAS(LEFTSIGNAL, 1006)
   ALIAS(RIGHTSIGNAL, 1010)
   ALIAS(TURNOUT, 1012)
+  ALIAS(MAINOCCUPIED, 1100)
+  ALIAS(LEFTOCCUPIED, 1101)
+  ALIAS(RIGHTOCCUPIED, 1102)
   SENDLOCO(7,1) // send loco 7 off along route 1
   DONE     // This just ends the startup thread, leaving 2 others running.
 
   SEQUENCE(1)    // initialize
     REV(40)      // go back to starting block
-    AT(1100)     // wait until starting block is occupied
+    AT(MAINOCCUPIED)     // wait until starting block is occupied
     STOP
     DELAY(1000)
-    RESET(1012)  // close the turnout
+    RESET(TURNOUT)  // close the turnout
   
   SEQUENCE(2)
     CALL(RIGHT)
@@ -62,7 +65,7 @@
     GREEN(MAINSIGNAL)
     DELAY(500)
     REV(35)
-    AT(1100)
+    AT(MAINOCCUPIED)
     DELAY(2800)
     AMBER(MAINSIGNAL)
     REV(25)
@@ -79,7 +82,7 @@
     DELAY(500)
     FON(0)
     FWD(35)
-    AT(1102)     // wait until main block occupied
+    AT(RIGHTOCCUPIED)     // CHANGE TO LEFT WHEN TURNOUT FIXED wait until left block occupied
     DELAY(800)  // go a litte farther under green
     AMBER(LEFTSIGNAL)
     FWD(25)
@@ -96,7 +99,7 @@
     DELAY(500)
     FON(0)
     FWD(35)
-    AT(1102)     // wait until main block occupied
+    AT(RIGHTOCCUPIED)     // wait until main block occupied
     DELAY(800)  // go a litte farther under green
     AMBER(RIGHTSIGNAL)
     FWD(25)
