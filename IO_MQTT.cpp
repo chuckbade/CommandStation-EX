@@ -67,7 +67,7 @@ void IO_MQTT::create(VPIN firstVpin, int nPins, int nTurnouts, int nSensors) {
 
 // Device-specific initialisation
 void IO_MQTT::_begin() {
-  char topic[30];
+
 #if defined(DIAG_IO)
   _display();
 #endif
@@ -80,14 +80,6 @@ void IO_MQTT::_begin() {
   //mqttClient.publish(topic, "", true);   // doesn't work, causes 
                        // subscriptions to not be sent
 
-  DIAG(F("IO_MQTT::_begin Subscribe for %d sensors with topic %s")
-    , _nSensors, SENSORTOPIC);
-
-  for (int i = 0; i < _nSensors; i++) {    
-    sprintf(topic, "%s%d", SENSORTOPIC, firstSensor + i); 
-    mqttClient.subscribe(topic);
-    DIAG(F("IO_MQTT::_begin subscribe, topic=%s"), topic);
-  }
 }
 
 
@@ -192,6 +184,8 @@ static void IO_MQTT::_callback(char* topic, byte* payload, unsigned int length) 
 long lastReconnectAttempt = 0;
 
 void IO_MQTT::_reconnect() {
+    char topic[30];
+
   // check that a connection isnt already in progress
   if (mqttClient.state() != MQTT_CONNECT_INPROGRESS) {
     long now = millis();
@@ -214,13 +208,18 @@ void IO_MQTT::_reconnect() {
   int ret = mqttClient.connectStatus();
   switch (ret) {
     case MQTT_CONNECTED:
-      Serial.println("connected");
-      // Once connected, publish an announcement...
-      mqttClient.publish("outTopic", "hello world");
-      // ... and resubscribe
-      mqttClient.subscribe("inTopic");
-
+      DIAG(F("IO_MQTT::connectMqtt connected to MQTT broker at %s"), MQTTIP);
+      // DO WE NEED TO RESUBSCRIBE?
       lastReconnectAttempt = 0;
+      DIAG(F("IO_MQTT::_begin Subscribe for %d sensors with topic %s")
+        , _nSensors, SENSORTOPIC);
+
+      for (int i = 0; i < _nSensors; i++) {    
+        sprintf(topic, "%s%d", SENSORTOPIC, firstSensor + i); 
+        mqttClient.subscribe(topic);
+        DIAG(F("IO_MQTT::_begin subscribe, topic=%s"), topic);
+      }
+
       break;
     case MQTT_CONNECT_INPROGRESS:
       return;
@@ -230,7 +229,6 @@ void IO_MQTT::_reconnect() {
       break;
   }
 }
-
 
 
 /*  
